@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Fingerprinting</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Browser Fingerprinting & Bot Detection</h1>
+    </header>
+
+    <main>
+        <div class="tabs-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="tab-bot">Bot Detection</button>
+                <button class="tab-button" data-tab="tab-basic">Basic Info</button>
+                <button class="tab-button" data-tab="tab-system">System</button>
+                <button class="tab-button" data-tab="tab-graphics">Graphics</button>
+                <button class="tab-button" data-tab="tab-browser">Browser</button>
+                <button class="tab-button" data-tab="tab-network">Network</button>
+                <button class="tab-button" data-tab="tab-device">Device</button>
+                <button class="tab-button" data-tab="tab-privacy">Privacy</button>
+                <button class="tab-button" data-tab="tab-interaction">Interaction</button>
+                <button class="tab-button" data-tab="tab-canvas">Canvas Fingerprint</button>
+                <button class="tab-button" data-tab="tab-api-fingerprint">API Fingerprint</button>
+                <button class="tab-button" data-tab="tab-remote-desktop">Remote Desktop</button>
+            </div>
+        </div>
+        
+        <div class="tab-contents">
+            <div id="tab-bot" class="tab-content active"></div>
+            <div id="tab-basic" class="tab-content"></div>
+            <div id="tab-system" class="tab-content"></div>
+            <div id="tab-graphics" class="tab-content"></div>
+            <div id="tab-browser" class="tab-content"></div>
+            <div id="tab-network" class="tab-content"></div>
+            <div id="tab-device" class="tab-content"></div>
+            <div id="tab-privacy" class="tab-content"></div>
+            <div id="tab-interaction" class="tab-content"></div>
+            <div id="tab-canvas" class="tab-content"></div>
+            <div id="tab-api-fingerprint" class="tab-content"></div>
+            <div id="tab-remote-desktop" class="tab-content"></div>
+        </div>
+        
+        <div id="debug-console" class="debug-console"></div>
+    </main>
+    
+    <footer>
+        <p>Fingerprinting for educational purposes only. <button id="export-btn">Export Data</button></p>
+    </footer>
+
+    <!-- Import JS modules -->
+    <script src="js/detectors/utils.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/detectors/browser.js"></script>
+    <script src="js/detectors/system.js"></script>
+    <script src="js/detectors/graphics.js"></script>
+    <script src="js/detectors/mouseInteraction.js"></script>
+    <script src="js/detectors/botDetection.js"></script>
+    <script src="js/detectors/network.js"></script>
+    <script src="js/detectors/device.js"></script>
+    <script src="js/detectors/privacy.js"></script>
+    <script src="js/detectors/canvasFingerprint.js"></script>
+    <script src="js/detectors/apiFingerprint.js"></script>
+    <script src="js/detectors/remoteDesktopDetector.js"></script>
+    <!-- Add the missing permissionsDetector script -->
+    <script src="js/detectors/permissionsDetector.js"></script>
+</body>
+</html> 
