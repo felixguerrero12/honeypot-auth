@@ -16,6 +16,7 @@
             <div class="tab-buttons">
                 <button class="tab-button active" data-tab="tab-bot">Bot Detection</button>
                 <button class="tab-button" data-tab="tab-basic">Basic Info</button>
+                <button class="tab-button" data-tab="tab-summary">Summary</button>
                 <button class="tab-button" data-tab="tab-system">System</button>
                 <button class="tab-button" data-tab="tab-graphics">Graphics</button>
                 <button class="tab-button" data-tab="tab-browser">Browser</button>
@@ -32,6 +33,7 @@
         <div class="tab-contents">
             <div id="tab-bot" class="tab-content active"></div>
             <div id="tab-basic" class="tab-content"></div>
+            <div id="tab-summary" class="tab-content"></div>
             <div id="tab-system" class="tab-content"></div>
             <div id="tab-graphics" class="tab-content"></div>
             <div id="tab-browser" class="tab-content"></div>
@@ -48,7 +50,11 @@
     </main>
     
     <footer>
-        <p>Fingerprinting for educational purposes only. <button id="export-btn">Export Data</button></p>
+        <p>Fingerprinting for educational purposes only.</p>
+        <div class="footer-actions">
+            <button id="export-btn">Export Data</button>
+            <button id="debug-toggle" class="debug-toggle">Show Debug Console</button>
+        </div>
     </footer>
 
     <!-- Import JS modules -->

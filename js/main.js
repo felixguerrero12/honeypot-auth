@@ -21,9 +21,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize tabs if they exist
     initTabs();
     
+    // Initialize debug toggle
+    initDebugToggle();
+    
     // Initialize all detectors and gather data
     initializeDetectors();
 });
+
+/**
+ * Initialize debug toggle button
+ */
+function initDebugToggle() {
+    const debugToggle = document.getElementById('debug-toggle');
+    const debugConsole = document.getElementById('debug-console');
+    
+    if (debugToggle && debugConsole) {
+        debugToggle.addEventListener('click', function() {
+            debugConsole.classList.toggle('visible');
+            debugToggle.textContent = debugConsole.classList.contains('visible') ? 'Hide Debug Console' : 'Show Debug Console';
+        });
+    }
+}
 
 /**
  * Initialize all fingerprinting detector modules
@@ -193,6 +211,9 @@ function initializeDetectors() {
         const fingerprintHash = utils.generateFingerprint(fingerprintData);
         // Create the basic info section with the overall fingerprint and data
         createDetailedBasicInfo(fingerprintHash, fingerprintData);
+        
+        // Create the summary tab
+        createSummaryTab(fingerprintData, fingerprintHash);
     } catch (e) {
         utils.log('Error generating overall fingerprint: ' + e.message, 'error');
     }
@@ -513,6 +534,193 @@ function safeExecute(fn, defaultValue = null) {
     } catch (e) {
         log(`Error executing function: ${e.message}`, 'error');
         return defaultValue;
+    }
+}
+
+/**
+ * Creates the summary tab with key findings from all detectors
+ * @param {object} fingerprintData - All collected fingerprint data
+ * @param {string} fingerprintHash - The generated fingerprint hash
+ */
+function createSummaryTab(fingerprintData, fingerprintHash) {
+    try {
+        const summaryTab = document.getElementById('tab-summary');
+        if (!summaryTab) return;
+        
+        // Create summary container
+        const summaryContainer = document.createElement('div');
+        summaryContainer.className = 'detection-summary';
+        
+        const heading = document.createElement('h2');
+        heading.textContent = 'Detection Summary';
+        summaryContainer.appendChild(heading);
+        
+        // Add key findings
+        const findings = [];
+        
+        // Bot detection summary
+        if (fingerprintData.botDetection) {
+            const botScore = fingerprintData.botDetection.overallScore || 0;
+            let indicatorClass = 'indicator-positive';
+            let status = 'Likely human';
+            
+            if (botScore > 0.7) {
+                indicatorClass = 'indicator-negative';
+                status = 'Likely bot';
+            } else if (botScore > 0.3) {
+                indicatorClass = 'indicator-warning';
+                status = 'Suspicious behavior';
+            }
+            
+            findings.push({
+                label: 'Bot Detection',
+                value: status,
+                indicatorClass: indicatorClass,
+                priority: 1
+            });
+        }
+        
+        // Remote Desktop Detection
+        if (fingerprintData.remoteDesktop) {
+            const detected = fingerprintData.remoteDesktop.detected;
+            const type = fingerprintData.remoteDesktop.type || 'unknown';
+            
+            if (detected) {
+                let rdpLabel = 'Remote Access Detected';
+                if (type !== 'none' && type !== 'other') {
+                    rdpLabel = `${type.toUpperCase()} Connection Detected`;
+                }
+                
+                findings.push({
+                    label: 'Remote Access',
+                    value: rdpLabel,
+                    indicatorClass: 'indicator-negative',
+                    priority: 2
+                });
+            }
+        }
+        
+        // Browser Privacy
+        if (fingerprintData.privacy) {
+            if (fingerprintData.privacy.privateMode) {
+                findings.push({
+                    label: 'Private Browsing',
+                    value: 'Active',
+                    indicatorClass: 'indicator-neutral',
+                    priority: 3
+                });
+            }
+            
+            if (fingerprintData.privacy.doNotTrack) {
+                findings.push({
+                    label: 'Do Not Track',
+                    value: 'Enabled',
+                    indicatorClass: 'indicator-neutral',
+                    priority: 4
+                });
+            }
+        }
+        
+        // Canvas fingerprinting
+        if (fingerprintData.canvasFingerprint && fingerprintData.canvasFingerprint.anomalies) {
+            const anomalies = fingerprintData.canvasFingerprint.anomalies;
+            if (anomalies.modified) {
+                findings.push({
+                    label: 'Canvas Fingerprint',
+                    value: 'Modified (anti-fingerprinting active)',
+                    indicatorClass: 'indicator-warning',
+                    priority: 5
+                });
+            }
+        }
+        
+        // WebRTC leak detection
+        if (fingerprintData.network && fingerprintData.network.webRTC) {
+            const webRTC = fingerprintData.network.webRTC;
+            if (webRTC.addresses && webRTC.addresses.length > 0) {
+                const hasPublicIP = webRTC.addresses.some(addr => addr.type === 'Public');
+                if (hasPublicIP) {
+                    findings.push({
+                        label: 'WebRTC IP Leak',
+                        value: 'Public IP exposed',
+                        indicatorClass: 'indicator-negative',
+                        priority: 3
+                    });
+                }
+            }
+        }
+        
+        // Device info
+        if (fingerprintData.device) {
+            findings.push({
+                label: 'Device Type',
+                value: fingerprintData.device.deviceType || 'Unknown',
+                indicatorClass: 'indicator-neutral',
+                priority: 6
+            });
+            
+            if (fingerprintData.device.touchscreen) {
+                findings.push({
+                    label: 'Touchscreen',
+                    value: 'Available',
+                    indicatorClass: 'indicator-neutral',
+                    priority: 7
+                });
+            }
+        }
+        
+        // Browser info
+        if (fingerprintData.browser) {
+            findings.push({
+                label: 'Browser',
+                value: `${fingerprintData.browser.browser} ${fingerprintData.browser.version}`,
+                indicatorClass: 'indicator-neutral',
+                priority: 8
+            });
+        }
+        
+        // Fingerprint hash
+        findings.push({
+            label: 'Fingerprint Hash',
+            value: fingerprintHash,
+            indicatorClass: 'indicator-neutral',
+            priority: 9
+        });
+        
+        // Sort by priority
+        findings.sort((a, b) => a.priority - b.priority);
+        
+        // Add findings to the summary container
+        findings.forEach(finding => {
+            const item = document.createElement('div');
+            item.className = 'summary-item';
+            
+            const indicator = document.createElement('div');
+            indicator.className = `summary-indicator ${finding.indicatorClass}`;
+            item.appendChild(indicator);
+            
+            const content = document.createElement('div');
+            content.className = 'summary-content';
+            
+            const label = document.createElement('div');
+            label.className = 'summary-label';
+            label.textContent = finding.label;
+            content.appendChild(label);
+            
+            const value = document.createElement('div');
+            value.className = 'summary-value';
+            value.textContent = finding.value;
+            content.appendChild(value);
+            
+            item.appendChild(content);
+            summaryContainer.appendChild(item);
+        });
+        
+        // Add to tab
+        summaryTab.appendChild(summaryContainer);
+        
+    } catch (e) {
+        utils.log('Error creating summary tab: ' + e.message, 'error');
     }
 }
 

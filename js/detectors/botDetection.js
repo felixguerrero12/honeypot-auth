@@ -117,10 +117,13 @@ class BotDetector {
         this._detectAPIAnomalies(); // API fingerprint detection
         
         // Create the score display
-        this._createScoreIndicator();
+        this._updateUI();
         
         // Setup analysis interval for mouse movement analysis
-        setInterval(() => this._analyzeAndUpdateResults(), 2000);
+        setInterval(() => {
+            this._analyzeAndUpdateResults();
+            this._updateUI();
+        }, 2000);
         
         return this.botData;
     }
@@ -1479,6 +1482,122 @@ class BotDetector {
         } catch (e) {
             window.utils.log('Error calculating risk score: ' + e.message, 'error');
             return 0;
+        }
+    }
+
+    /**
+     * Update UI with detection results
+     */
+    _updateUI() {
+        try {
+            // Calculate the overall bot score percentage
+            const botScorePercentage = Math.round(this.detectionScores.overallScore * 100);
+            
+            // Create a visually appealing score indicator
+            const scoreContainer = document.createElement('div');
+            scoreContainer.className = 'score-indicator';
+            
+            // Determine color based on score
+            let scoreClass = 'score-low';
+            let statusText = 'Likely human';
+            
+            if (botScorePercentage > 70) {
+                scoreClass = 'score-high';
+                statusText = 'Likely bot';
+            } else if (botScorePercentage > 30) {
+                scoreClass = 'score-medium';
+                statusText = 'Suspicious behavior';
+            }
+            
+            // Create the circular progress indicator
+            const scoreCircle = document.createElement('div');
+            scoreCircle.className = `score-circle ${scoreClass}`;
+            scoreCircle.textContent = `${botScorePercentage}%`;
+            scoreContainer.appendChild(scoreCircle);
+            
+            // Create text content
+            const scoreText = document.createElement('div');
+            scoreText.className = 'score-text';
+            
+            const scoreLabel = document.createElement('div');
+            scoreLabel.className = 'score-label';
+            scoreLabel.textContent = statusText;
+            scoreText.appendChild(scoreLabel);
+            
+            const scoreDescription = document.createElement('div');
+            scoreDescription.className = 'score-description';
+            scoreDescription.textContent = this._getSuspiciousFactors();
+            scoreText.appendChild(scoreDescription);
+            
+            scoreContainer.appendChild(scoreText);
+            
+            // Add the score indicator to the section
+            const botSection = document.getElementById(this.sectionId);
+            if (botSection) {
+                // Check if we already have a score indicator
+                const existingIndicator = botSection.querySelector('.score-indicator');
+                if (existingIndicator) {
+                    existingIndicator.replaceWith(scoreContainer);
+                } else {
+                    // Add it at the top
+                    if (botSection.firstChild) {
+                        botSection.insertBefore(scoreContainer, botSection.firstChild);
+                    } else {
+                        botSection.appendChild(scoreContainer);
+                    }
+                }
+            }
+            
+            // Update individual detection scores
+            this._updateDetectionScores();
+        } catch (e) {
+            window.utils.log('Error updating bot detection UI: ' + e.message, 'error');
+        }
+    }
+
+    /**
+     * Get a text summary of suspicious factors
+     * @returns {string} Summary of suspicious factors
+     */
+    _getSuspiciousFactors() {
+        const suspiciousFactors = [];
+        
+        if (this.detectionScores.mousePatterns > 0.5) {
+            suspiciousFactors.push('unusual mouse patterns');
+        }
+        
+        if (this.detectionScores.headlessBrowser > 0.5) {
+            suspiciousFactors.push('headless browser indicators');
+        }
+        
+        if (this.detectionScores.fakeUserAgent > 0.5) {
+            suspiciousFactors.push('user agent inconsistencies');
+        }
+        
+        if (this.detectionScores.unusualResolution > 0.5) {
+            suspiciousFactors.push('unusual screen resolution');
+        }
+        
+        if (this.detectionScores.rdpDetection > 0.5) {
+            suspiciousFactors.push('remote desktop detected');
+        }
+        
+        if (this.detectionScores.fingerprinting > 0.5) {
+            suspiciousFactors.push('fingerprint anomalies');
+        }
+        
+        if (this.detectionScores.apiFingerprint > 0.5) {
+            suspiciousFactors.push('API behavioral anomalies');
+        }
+        
+        if (this.detectionScores.eventTimingPatterns > 0.5) {
+            suspiciousFactors.push('unnatural timing patterns');
+        }
+        
+        if (suspiciousFactors.length === 0) {
+            return 'No suspicious patterns detected';
+        } else {
+            return 'Detected: ' + suspiciousFactors.join(', ');
         }
     }
 }
