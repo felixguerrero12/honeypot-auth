@@ -598,6 +598,24 @@ function createSummaryTab(fingerprintData, fingerprintHash) {
                     priority: 2
                 });
             }
+            
+            // Add refresh rate info if unusual
+            if (fingerprintData.remoteDesktop.screenProperties && 
+                fingerprintData.remoteDesktop.screenProperties.data && 
+                fingerprintData.remoteDesktop.screenProperties.data.refreshRate) {
+                
+                const refreshRate = fingerprintData.remoteDesktop.screenProperties.data.refreshRate;
+                const isUnusual = [15, 24, 30].includes(refreshRate);
+                
+                if (isUnusual) {
+                    findings.push({
+                        label: 'Monitor Refresh Rate',
+                        value: `${refreshRate}Hz (Remote Desktop indicator)`,
+                        indicatorClass: 'indicator-warning',
+                        priority: 3
+                    });
+                }
+            }
         }
         
         // Browser Privacy

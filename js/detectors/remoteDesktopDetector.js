@@ -437,8 +437,33 @@ class RemoteDesktopDetector {
                 screenHeight: window.screen.height,
                 availWidth: window.screen.availWidth,
                 availHeight: window.screen.availHeight,
-                colorDepth: window.screen.colorDepth
+                colorDepth: window.screen.colorDepth,
+                refreshRate: null // Will be populated by refreshRate detection
             };
+            
+            // Detect refresh rate
+            this._detectRefreshRate().then(refreshRate => {
+                screenData.refreshRate = refreshRate;
+                
+                // Update UI with refresh rate info
+                window.utils.addInfo(this.sectionId, 'Monitor Refresh Rate', 
+                    refreshRate ? `${refreshRate} Hz` : 'Unable to detect',
+                    this._isUnusualRefreshRate(refreshRate) ? 'warning-indicator' : '');
+                
+                // Check if refresh rate indicates Remote Desktop
+                if (this._isUnusualRefreshRate(refreshRate)) {
+                    window.utils.addInfo(this.sectionId, 'Refresh Rate Analysis', 
+                        'Unusual value (Remote Desktop indicator)', 'warning-indicator');
+                        
+                    // Update type to RDP if refresh rate strongly indicates it
+                    if (refreshRate === 30) {
+                        this.results.type = 'rdp'; // Standard RDP refresh rate is often 30Hz
+                    }
+                }
+                
+                // Recalculate confidence with this new information
+                this._calculateConfidence();
+            });
             
             // Common remote desktop resolution ratios
             const commonRemoteResolutions = [
@@ -461,7 +486,8 @@ class RemoteDesktopDetector {
                 suspiciousFactors: {
                     isCommonRemoteResolution,
                     unusualColorDepth,
-                    nonIntegerDPR
+                    nonIntegerDPR,
+                    unusualRefreshRate: false // Will be updated when refresh rate is detected
                 }
             };
             
@@ -486,6 +512,135 @@ class RemoteDesktopDetector {
             window.utils.log('Error detecting screen properties: ' + e.message, 'error');
             return null;
         }
+    }
+    
+    /**
+     * Detect monitor refresh rate (Hz) using requestAnimationFrame timing
+     * @returns {Promise<number|null>} The detected refresh rate or null if detection failed
+     */
+    _detectRefreshRate() {
+        return new Promise((resolve) => {
+            try {
+                let refreshRateSamples = [];
+                let lastTime = performance.now();
+                let sampleCount = 0;
+                let requestId;
+                
+                // Function to measure frame times
+                const measureFrameTime = (timestamp) => {
+                    const currentTime = performance.now();
+                    const frameDuration = currentTime - lastTime;
+                    lastTime = currentTime;
+                    
+                    // Skip the first few frames (they might be unstable)
+                    if (sampleCount > 5) {
+                        refreshRateSamples.push(frameDuration);
+                    }
+                    
+                    sampleCount++;
+                    
+                    // Collect enough samples for reliability
+                    if (refreshRateSamples.length >= 60) {
+                        cancelAnimationFrame(requestId);
+                        
+                        // Process the collected samples
+                        const refreshRate = this._processRefreshRateSamples(refreshRateSamples);
+                        
+                        // Update suspiciousFactors
+                        if (this.results.screenProperties && this.results.screenProperties.suspiciousFactors) {
+                            this.results.screenProperties.suspiciousFactors.unusualRefreshRate = 
+                                this._isUnusualRefreshRate(refreshRate);
+                        }
+                        
+                        resolve(refreshRate);
+                    } else {
+                        requestId = requestAnimationFrame(measureFrameTime);
+                    }
+                };
+                
+                // Start measuring
+                requestId = requestAnimationFrame(measureFrameTime);
+                
+                // Set a timeout in case the measurements take too long
+                setTimeout(() => {
+                    if (refreshRateSamples.length > 0) {
+                        cancelAnimationFrame(requestId);
+                        const refreshRate = this._processRefreshRateSamples(refreshRateSamples);
+                        
+                        if (this.results.screenProperties && this.results.screenProperties.suspiciousFactors) {
+                            this.results.screenProperties.suspiciousFactors.unusualRefreshRate = 
+                                this._isUnusualRefreshRate(refreshRate);
+                        }
+                        
+                        resolve(refreshRate);
+                    } else {
+                        cancelAnimationFrame(requestId);
+                        resolve(null);
+                    }
+                }, 2000); // Maximum 2 seconds for detection
+                
+            } catch (e) {
+                window.utils.log('Error detecting refresh rate: ' + e.message, 'error');
+                resolve(null);
+            }
+        });
+    }
+    
+    /**
+     * Process collected refresh rate samples to determine the monitor's refresh rate
+     * @param {number[]} samples - Array of frame duration measurements in milliseconds
+     * @returns {number|null} - The detected refresh rate in Hz, or null if detection failed
+     */
+    _processRefreshRateSamples(samples) {
+        try {
+            // Remove outliers (frames that took too long)
+            const validSamples = samples.filter(sample => sample < 100); // Ignore samples over 100ms
+            
+            if (validSamples.length < 10) {
+                return null; // Not enough valid samples
+            }
+            
+            // Calculate the average frame time in milliseconds
+            const averageFrameTime = validSamples.reduce((sum, time) => sum + time, 0) / validSamples.length;
+            
+            // Convert to refresh rate in Hz
+            let refreshRate = Math.round(1000 / averageFrameTime);
+            
+            // Common refresh rates to snap to
+            const commonRates = [30, 60, 75, 90, 120, 144, 165, 240];
+            
+            // Find the closest common refresh rate (within 3Hz)
+            for (const rate of commonRates) {
+                if (Math.abs(refreshRate - rate) <= 3) {
+                    refreshRate = rate;
+                    break;
+                }
+            }
+            
+            window.utils.log(`Detected refresh rate: ${refreshRate}Hz (avg frame time: ${averageFrameTime.toFixed(2)}ms)`, 'info');
+            
+            return refreshRate;
+        } catch (e) {
+            window.utils.log('Error processing refresh rate samples: ' + e.message, 'error');
+            return null;
+        }
+    }
+    
+    /**
+     * Check if the detected refresh rate indicates remote desktop usage
+     * @param {number|null} refreshRate - The detected refresh rate
+     * @returns {boolean} - True if the refresh rate indicates remote desktop
+     */
+    _isUnusualRefreshRate(refreshRate) {
+        if (!refreshRate) return false;
+        
+        // Common remote desktop refresh rates
+        // - RDP typically uses 30Hz
+        // - VNC often uses 15Hz or 30Hz
+        // - TeamViewer often limits to 30Hz or 60Hz depending on connection
+        
+        // Unusual refresh rates that might indicate remote desktop
+        return refreshRate === 30 || refreshRate === 15 || refreshRate === 24;
     }
     
     /**
@@ -599,6 +754,12 @@ class RemoteDesktopDetector {
                 if (suspiciousFactors.isCommonRemoteResolution) screenScore += 0.1;
                 if (suspiciousFactors.unusualColorDepth) screenScore += 0.1;
                 if (suspiciousFactors.nonIntegerDPR) screenScore += 0.1;
+                
+                // Add refresh rate to the screen properties score
+                if (suspiciousFactors.unusualRefreshRate) {
+                    screenScore += 0.2; // Higher weight because it's a strong indicator
+                    window.utils.log('Unusual refresh rate detected, adding 0.2 to screen score', 'info');
+                }
                 
                 score += screenScore;
             }
